@@ -33,7 +33,7 @@ Belows are some of the principles I tried my best to follow in this code redesig
   - The output of a function is the input of the next function. This call chain should continue to completion even when there is an error.
   - Within each function, there should be branches for success and failure to allow for continuation.
 
-# Utilize the functional language features in C# 10
+# Functional Language Features in C# 10
 
 - Use immutable record instead of class to implement object
 - Pattern-matching statement and expression

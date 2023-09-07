@@ -187,7 +187,7 @@ namespace UnitTestProject
             var f = _rt.BuildGraphWeightFunc(_rtspec, _rtspec.CableFills);
 
             // act
-            var path = _rt.RouteCable(_rtspec, f);
+            var path = _rt.Network.RouteCable(_rtspec, f);
 
             // assert
             Assert.Equal(11.0, path.PathWeight.Value);
@@ -205,7 +205,7 @@ namespace UnitTestProject
             var f = _rt.BuildGraphWeightFunc(rs, rs.CableFills);
 
             // act
-            var path = _rt.RouteCable(rs, f);
+            var path = _rt.Network.RouteCable(rs, f);
 
             // assert
             Assert.Equal(12.0, path.PathWeight.Value);
@@ -223,7 +223,7 @@ namespace UnitTestProject
             var f = _rt.BuildGraphWeightFunc(rs, rs.CableFills);
 
             // act
-            var path = _rt.RouteCable(rs, f);
+            var path = _rt.Network.RouteCable(rs, f);
 
             // assert
             Assert.Equal(13.0, path.PathWeight.Value);
@@ -246,7 +246,7 @@ namespace UnitTestProject
             var f = rt.BuildGraphWeightFunc(rs, rs.CableFills);
 
             // act
-            var path = rt.RouteCable(rs, f);
+            var path = rt.Network.RouteCable(rs, f);
 
             // assert
             Assert.Equal(12.0, path.PathWeight.Value);
@@ -266,7 +266,7 @@ namespace UnitTestProject
             var f = rt.BuildGraphWeightFunc(rs, rs.CableFills);
 
             // act
-            var path = rt.RouteCable(rs, f);
+            var path = rt.Network.RouteCable(rs, f);
 
             // assert
             Assert.Equal(11.0, path.PathWeight.Value);

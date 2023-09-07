@@ -1,5 +1,7 @@
 ﻿using GraphLib;
 using NecFillLib;
+using System.Reflection.Metadata.Ecma335;
+using System.Xml.Linq;
 using static GraphLib.ShortPathAlgo;
 using static NecFillLib.Nec2011.NecFillAlgo2011;
 
@@ -9,6 +11,11 @@ namespace RouteLib
     {
         #region Types
 
+        /// <summary>
+        /// These are the functions used in the
+        /// weight calculation of edges within 
+        /// the short path algorithm.
+        /// </summary>
         public record GraphWeightParams
         {
             public RWFilter IsPrefer { get; init; }
@@ -19,39 +26,152 @@ namespace RouteLib
             public RWFilter CheckFill { get; init; }
         }
 
+        /// <summary>
+        /// The result of the tray fill calculated during routing
+        /// of the cables.
+        /// </summary>
         public class TrayFillResult : Dictionary<string, Result<TrayFill>> { }
 
         #endregion
 
+        /// <summary>
+        /// Build a graph data structure from a set of raceway
+        /// </summary>
         public static IGraph BuildNetwork(this IEnumerable<Raceway> raceways)
         {
             var q = raceways
-                .Where(r => r.Weight.Value > 0)
-                .Where(r => r.FromNode.ID != r.ToNode.ID);
+                .Where(r => r.Weight.Value >= 0) // no negative edges
+                .Where(r => r.FromNode.ID != r.ToNode.ID); // no self loop edges
 
             return q.BuildGraph(false);
         }
 
         #region Routing
 
-        public static SPResult RouteCable(this Router rt, RouteSpec c, CalcEdgeWeight ew) =>
-           rt.Network.SingleSourceDijkstra(c, ew);
+        /// <summary>
+        /// Route the cable with a custom weight function.
+        /// </summary>
+        /// <param name="ew">Custom weight function used by the short path algorithm. This function
+        /// should already encapsultes all the requirement specified by the Router and RouteSpec
+        /// objects.</param>
+        public static SPResult RouteCable(this IGraph graph, ISPRouteSpec c, CalcEdgeWeight ew) =>
+           graph.SingleSourceDijkstra(c, ew);
 
-
-        public static SPResult RouteCable(this Router rt, RouteSpec c, IEnumerable<CableFill> cableFills)
+        /// <summary>
+        /// Route the cable.
+        /// </summary>
+        /// <param name="cableFills">Multiple cable fills values can be included 
+        /// if those cables must have a same route path.</param>
+        static SPResult RouteCableSimple(this Router rt, RouteSpec c, IEnumerable<CableFill> cableFills)
         {
             var f = rt.BuildWeightFuncParams(c, cableFills);
             var ew = BuildGraphWeightFunc(f);
-            return rt.Network.SingleSourceDijkstra(c, ew);
+            return rt.Network.RouteCable(c, ew);
         }
 
+        /// <summary>
+        /// Route the cable and also return the tray fill result calculated while routing.
+        /// </summary>
         public static (SPResult Route, TrayFillResult TrayFills) RouteCable2(this Router rt, 
             RouteSpec c, IEnumerable<CableFill> cableFills)
         {
             var f = rt.BuildWeightFuncParams(c, cableFills);
             var f2 = f with { CheckFill = RouteAlgo.BuildNecCheckFillFunc(rt.RWFills, cableFills, out var tfRes) };
             var ew = BuildGraphWeightFunc(f2);
-            return (rt.Network.SingleSourceDijkstra(c, ew), tfRes);
+            return (rt.Network.RouteCable(c, ew), tfRes);
+        }
+
+        public static SPResult RouteCable(this Router rt, RouteSpec c, IEnumerable<CableFill> cableFills)
+        {
+            // simple case
+            if (c.IncludeRWs.Count == 0)
+                return rt.RouteCableSimple(c, cableFills);
+
+            // track the route result of each iteration
+            var lstPath = new List<SPResult>();
+
+            // the complete route
+            var lstRoute = new List<IEdge>();
+
+            #region Inner functions
+
+            ExcludeRW BuildExclRW() =>
+                c.ExcludeRWs.Concat(lstRoute.Select(e => e.ID))
+                    .Aggregate(new ExcludeRW(), (agg, id) => { agg.Add(id); return agg; });
+
+            RouteSpec BuildRouteSpec(Node fromNode, Node toNode) =>
+                c with
+                {
+                    FromNode = fromNode,
+                    ToNode = toNode,
+                    ExcludeRWs = BuildExclRW(),
+                    IncludeRWs = new()
+                };
+
+            (bool Success, Node StartNode) RouteNext(RouteSpec rs, Raceway rw)
+            {
+                var path = rt.RouteCableSimple(rs, cableFills);
+                lstPath.Add(path);
+                if (!path.Success) return (false, null);
+
+                lstRoute.AddRange(path.Path);
+                var nextNode = rw.ToNode;
+                if (!path.Path.Any(e => e.ID == rw.ID))
+                {
+                    var ew = rt.BuildGraphWeightFunc(rs, cableFills);
+                    if (ew(new[] { rw }, rw.ToNode).Count() != 1) 
+                        return (false, null);
+
+                    lstRoute.Add(rw);
+                    nextNode = rw.GetOtherVertex(rw.ToNode) as Node;
+                }
+                return (true, nextNode);
+            }
+
+            SPResult BuildResult(bool success)
+            {
+                var length = lstRoute.Sum(e => e.Weight.Value);
+                return new(lstRoute, c.FromNode, c.ToNode,
+                    success ? new(length) : new(0.0), success);
+            }
+
+            #endregion
+
+            #region Loop
+
+            // required raceway in the route
+            var inclRW = rt.Network.Edges
+                .Where(e => c.IncludeRWs.Contains(e.ID))
+                .Cast<Raceway>()
+                .ToList();
+
+            var startNode = c.FromNode;
+            foreach (var rw in inclRW)
+            {
+                var rs = BuildRouteSpec(startNode, rw.ToNode);
+                var res = RouteNext(rs, rw);
+                if (!res.Success) 
+                    return BuildResult(false);
+                else startNode = res.StartNode;
+            };
+
+            #endregion
+
+            #region Final route segment
+
+            if (startNode.ID != c.ToNode.ID)
+            {
+                var rs = BuildRouteSpec(startNode, c.ToNode);
+                var res = rt.RouteCableSimple(c, cableFills);
+                lstPath.Add(res);
+                if (!res.Success)
+                    return BuildResult(false);
+                lstRoute.AddRange(res.Path);
+            }
+
+            #endregion
+
+            return BuildResult(true);
         }
 
         #endregion
@@ -208,6 +328,9 @@ namespace RouteLib
         public static RWFilter BuildNecCheckFillFunc(NecTrayFill rwFills, IEnumerable<CableFill> cableFills, 
             out TrayFillResult trayfills)
         {
+            // return the result of the 
+            // tray fill calculation during
+            // cable routing.
             var d = new TrayFillResult();
             trayfills = d;
 
@@ -217,9 +340,12 @@ namespace RouteLib
                 // fill calculation is only needed for TRAY
                 if (r.IsTray() && cableFills.Count() > 0 && rwFills.TryGetValue(r.ID, out var tf))
                 {
+                    // check if the result has been cached
+                    // from earlier calculuation.
                     if (!d.TryGetValue(r.ID, out var tfRes))
                     {
                         tfRes = tf.AddCableToTray(cableFills);
+                        // save the result
                         d[tfRes.Value.TrayId] = tfRes;
                     }
                     return tfRes.Success ? tfRes.Value.FillPercentage <= 100 : false;
