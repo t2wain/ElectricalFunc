@@ -49,7 +49,8 @@ namespace RouteLib
         #region Routing
 
         /// <summary>
-        /// Route the cable with a custom weight function.
+        /// Route the cable with a custom weight function.  WARNING,
+        /// this method does not utitize the required racewway specification in the route spec.
         /// </summary>
         /// <param name="ew">Custom weight function used by the short path algorithm. This function
         /// should already encapsultes all the requirement specified by the Router and RouteSpec
@@ -58,7 +59,7 @@ namespace RouteLib
            graph.SingleSourceDijkstra(c, ew);
 
         /// <summary>
-        /// Route the cable.
+        /// Route the cable when there is NO required raceway specified in the route spec
         /// </summary>
         /// <param name="cableFills">Multiple cable fills values can be included 
         /// if those cables must have a same route path.</param>
@@ -70,7 +71,8 @@ namespace RouteLib
         }
 
         /// <summary>
-        /// Route the cable and also return the tray fill result calculated while routing.
+        /// Route the cable and also return the tray fill result calculated while routing. WARNING,
+        /// this method does not utitize the required racewway specification in the route spec.
         /// </summary>
         public static (SPResult Route, TrayFillResult TrayFills) RouteCable2(this Router rt, 
             RouteSpec c, IEnumerable<CableFill> cableFills)
@@ -81,6 +83,10 @@ namespace RouteLib
             return (rt.Network.RouteCable(c, ew), tfRes);
         }
 
+        /// <summary>
+        /// This is the main cable routing function that will satisfy all the critera specifed
+        /// in the router and route spec.
+        /// </summary>
         public static SPResult RouteCable(this Router rt, RouteSpec c, IEnumerable<CableFill> cableFills)
         {
             // simple case
@@ -95,39 +101,53 @@ namespace RouteLib
 
             #region Inner functions
 
+            // convenient function
             ExcludeRW BuildExclRW() =>
                 c.ExcludeRWs.Concat(lstRoute.Select(e => e.ID))
                     .Aggregate(new ExcludeRW(), (agg, id) => { agg.Add(id); return agg; });
 
+            // convenient function to build the next route spec
             RouteSpec BuildRouteSpec(Node fromNode, Node toNode) =>
                 c with
                 {
                     FromNode = fromNode,
                     ToNode = toNode,
-                    ExcludeRWs = BuildExclRW(),
+                    // be sure to exclude all raceway
+                    // already in the current route
+                    ExcludeRWs = BuildExclRW(), 
                     IncludeRWs = new()
                 };
 
             (bool Success, Node StartNode) RouteNext(RouteSpec rs, Raceway rw)
             {
                 var path = rt.RouteCableSimple(rs, cableFills);
+                // keep track of the result
                 lstPath.Add(path);
                 if (!path.Success) return (false, null);
 
+                // keep track of the raceway in the route
                 lstRoute.AddRange(path.Path);
-                var nextNode = rw.ToNode;
+                // set the next start node for the next route
+                var nextNode = rw.ToNode; 
                 if (!path.Path.Any(e => e.ID == rw.ID))
                 {
+                    // if the required raceway is not in the path
+                    // then add it to route but first check
+                    // if this raceway meet all the weight criteria
                     var ew = rt.BuildGraphWeightFunc(rs, cableFills);
                     if (ew(new[] { rw }, rw.ToNode).Count() != 1) 
                         return (false, null);
 
                     lstRoute.Add(rw);
+                    // set the next start node as the other
+                    // end of the required raceway.
                     nextNode = rw.GetOtherVertex(rw.ToNode) as Node;
                 }
                 return (true, nextNode);
             }
 
+            // convenient function to build the route
+            // result from tracked variables
             SPResult BuildResult(bool success)
             {
                 var length = lstRoute.Sum(e => e.Weight.Value);
@@ -145,24 +165,33 @@ namespace RouteLib
                 .Cast<Raceway>()
                 .ToList();
 
+            // route the cable in multiple steps
+            // with each step to the next required raceway
+            // to be included in the route.
             var startNode = c.FromNode;
             foreach (var rw in inclRW)
             {
+                // set the next route to be between the
+                // previous route to the next raceway
                 var rs = BuildRouteSpec(startNode, rw.ToNode);
                 var res = RouteNext(rs, rw);
                 if (!res.Success) 
                     return BuildResult(false);
-                else startNode = res.StartNode;
+                // set the start node for next route
+                else startNode = res.StartNode; 
             };
 
             #endregion
 
             #region Final route segment
 
+            // check if we reach the destination
             if (startNode.ID != c.ToNode.ID)
             {
+                // set the next route to be between the
+                // previous route to the destination
                 var rs = BuildRouteSpec(startNode, c.ToNode);
-                var res = rt.RouteCableSimple(c, cableFills);
+                var res = rt.RouteCableSimple(rs, cableFills);
                 lstPath.Add(res);
                 if (!res.Success)
                     return BuildResult(false);

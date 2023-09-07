@@ -293,5 +293,31 @@ namespace UnitTestProject
             Assert.True(path.Path.Any(r => r.ID == "R6A"));
             Assert.True(tfRes.ContainsKey("R6A"));
         }
+
+
+        [Fact]
+        public void Should_route_cable_7()
+        {
+            // arrange
+            var tray = DB.GetCableInTray("T4");
+            var tf = new TrayFill() { TrayId = "R6A", TraySpecId = tray.TraySpec.ID, TraySpec = tray.TraySpec.GetNecTray() };
+            var rt = _rt with { RWFills = new() { { tf.TrayId, tf } } };
+
+            var rs = _rtspec with {
+                CableFills = tray.Cables.Select(t => t.CableSpec.GetNecCable().CalcFillValueOfCable() * t.Qty).ToList(),
+                PreferRWs = new() { "R6A1" },
+                IncludeRWs = new() { "J1" }
+            };
+
+            // act
+            var path = rt.RouteCable(rs, rs.CableFills);
+
+            // assert
+            //Assert.Equal(12.0, path.PathWeight.Value);
+            //Assert.Equal(11, path.Path.Count());
+            Assert.True(path.Path.Any(r => r.ID == "R6A1"));
+            Assert.True(path.Path.Any(r => r.ID == "J1"));
+        }
+
     }
 }
