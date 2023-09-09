@@ -49,6 +49,7 @@ namespace NecFillLib
         /// </summary>
         public HashSet<string> RuleNames { get; init; } = new();
         public double FillPercentage { get; init; } = 0.0;
+        public double ReserveFillPercentage { get; init; } = 0.0;
 
     }
 }

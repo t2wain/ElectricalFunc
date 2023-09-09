@@ -203,6 +203,77 @@ namespace RouteLib
             return BuildResult(true);
         }
 
+        /// <summary>
+        /// Validate the route.
+        /// </summary>
+        /// <param name="route">Sequence of raceways in the route</param>
+        /// <returns>Error messages</returns>
+        public static HashSet<string> ValidateRoute(this Router router, RouteSpec routeSpec, IEnumerable<Raceway> route)
+        {
+            if (route.Count() == 0)
+                return new() { "There is no raceway in the route" };
+
+            var rwf = router.BuildWeightFuncParams(routeSpec, routeSpec.CableFills);
+
+            var visitedV = new HashSet<string>();
+            var visitedE = new HashSet<string>();
+            var errMsg = new HashSet<string>();
+            Raceway prevE = null;
+            foreach (var r in route)
+            {
+                // check matching segration system
+                if (!rwf.ValidateSegSystem(r))
+                    errMsg.Add(string.Format("Mis-match segregation system: {0}", r.ID));
+
+                // check any blocked raceway
+                if (!rwf.AllowRW(r))
+                    errMsg.Add(string.Format("Raceway not allowed: {0}", r.ID));
+
+                // check if first raceway is overfill
+                if (router.RWFills.TryGetValue(r.ID, out var tf) && tf.FillPercentage > 100)
+                    errMsg.Add(string.Format("Raceway is overfill: {0}", r.ID));
+
+                // check if first raceway connected to source
+                if (prevE == null) {
+                    if (!r.HasVertex(routeSpec.FromNode))
+                        errMsg.Add(string.Format("Not connected to source"));
+                }
+                else
+                {
+                    // check if connected to previous raceway
+                    if (!prevE.HasVertex(r.FromNode) && !prevE.HasVertex(r.ToVertex))
+                        errMsg.Add(string.Format("Disconnected at raceway: {0}", r.ID));
+
+                    // check if raceway connected to any previous node
+                    if (visitedV.Contains(r.FromNode.ID) && visitedV.Contains(r.ToNode.ID))
+                        errMsg.Add(string.Format("Circular path at raceway: {0}", r.ID));
+
+                    // check if the same raceway is in the route more than once
+                    if (visitedE.Contains(r.ID))
+                        errMsg.Add(string.Format("Duplicate raceway: {0}", r.ID));
+                }
+
+                // track visited nodes and raceways
+                visitedV.Add(r.FromNode.ID);
+                visitedV.Add(r.ToNode.ID);
+                visitedE.Add(r.ID);
+
+                prevE = r;
+            }
+
+            // check if the last raceway is connected to the target
+            if (!prevE.HasVertex(routeSpec.ToNode))
+                errMsg.Add(string.Format("Not connected to target"));
+
+            // check if the required raceways are in the route
+            routeSpec.IncludeRWs
+                .Where(r => !visitedE.Contains(r))
+                .Select(r => string.Format("Missing required raceway: {0}", r))
+                .Aggregate(errMsg, (agg, m) => { agg.Add(m); return agg; });
+
+            return errMsg;
+        }
+
         #endregion
 
         #region Raceway filter functions
@@ -377,7 +448,9 @@ namespace RouteLib
                         // save the result
                         d[tfRes.Value.TrayId] = tfRes;
                     }
-                    return tfRes.Success ? tfRes.Value.FillPercentage <= 100 : false;
+                    return tfRes.Success ? 
+                        tfRes.Value.FillPercentage + tfRes.Value.ReserveFillPercentage <= 100 
+                        : false;
                 }
                 else return true; // non-tray
             }

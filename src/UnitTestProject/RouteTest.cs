@@ -311,12 +311,12 @@ namespace UnitTestProject
 
             // act
             var path = rt.RouteCable(rs, rs.CableFills);
+            var errs = rt.ValidateRoute(rs, path.Path.Cast<Raceway>());
 
             // assert
-            //Assert.Equal(12.0, path.PathWeight.Value);
-            //Assert.Equal(11, path.Path.Count());
             Assert.True(path.Path.Any(r => r.ID == "R6A1"));
             Assert.True(path.Path.Any(r => r.ID == "J1"));
+            Assert.Empty(errs);
         }
 
     }
