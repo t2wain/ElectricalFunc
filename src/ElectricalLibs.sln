@@ -21,6 +21,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RouteDB", "RouteDB\RouteDB.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTestProject", "UnitTestProject\UnitTestProject.csproj", "{FF19C8FD-A72B-4E96-9BDE-AE4DBAA973EE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RacewayLib", "RacewayLib\RacewayLib.csproj", "{D7A8F3FF-C8CE-46BE-A1B3-B0F3A846FDB9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,10 @@ Global
 		{FF19C8FD-A72B-4E96-9BDE-AE4DBAA973EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FF19C8FD-A72B-4E96-9BDE-AE4DBAA973EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FF19C8FD-A72B-4E96-9BDE-AE4DBAA973EE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D7A8F3FF-C8CE-46BE-A1B3-B0F3A846FDB9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D7A8F3FF-C8CE-46BE-A1B3-B0F3A846FDB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D7A8F3FF-C8CE-46BE-A1B3-B0F3A846FDB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D7A8F3FF-C8CE-46BE-A1B3-B0F3A846FDB9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -67,6 +73,7 @@ Global
 		{302A2A38-22A8-43FB-BF2E-CF75410A86BC} = {F2C7E37E-BD56-48DA-A479-3DAEFCDD5CFF}
 		{952E1B2D-A300-41AB-B341-68B5BC051BAB} = {F2C7E37E-BD56-48DA-A479-3DAEFCDD5CFF}
 		{FF19C8FD-A72B-4E96-9BDE-AE4DBAA973EE} = {F2C7E37E-BD56-48DA-A479-3DAEFCDD5CFF}
+		{D7A8F3FF-C8CE-46BE-A1B3-B0F3A846FDB9} = {B3F9D6D0-5DD1-4409-B10F-AD3CD7BD8F22}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D865710E-3C10-4195-BA78-3D471875F864}
