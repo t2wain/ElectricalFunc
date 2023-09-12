@@ -13,27 +13,27 @@ namespace RacewayLib
 
 
     public record Node { 
-        public string ID { get; init; }
+        public string ID { get; init; } = "";
         /// <summary>
         /// Belong to a branch
         /// </summary>
-        public string BranchID { get; init; }
+        public string BranchID { get; init; } = "";
         /// <summary>
         /// The next connected node in a path.
         /// This path is a straight line segement
         /// between these nodes.
         /// </summary>
-        public Node NextNode { get; init; }
+        public Node NextNode { get; init; } = new();
         /// <summary>
         /// The distance to the next connected node.
         /// </summary>
-        public double Length { get; init; }
+        public double Length { get; init; } = 0;
         public NodeTypeEnum NodeType { get; init; }
     }
 
     public record NodeCoord
     {
-        public string NodeID { get; init; }
+        public string NodeID { get; init; } = "";
         public double X { get; init; } = 0;
         public double Y { get; init; } = 0;
         public double Z { get; init; } = 0;
@@ -48,10 +48,10 @@ namespace RacewayLib
     /// </summary>
     public record Branch
     {
-        public string ID { get; init; }
-        public string Name { get; init; }
-        public Node StartNode { get; init; }
-        public Node EndNode { get; init; }
+        public string ID { get; init; } = "";
+        public string Name { get; init; } = "";
+        public Node StartNode { get; init; } = new();
+        public Node EndNode { get; init; } = new();
     }
 
     /// <summary>
@@ -60,20 +60,20 @@ namespace RacewayLib
     /// </summary>
     public record Pipe
     {
-        public string ID { get; init; }
-        public IEnumerable<Branch> Branches { get; init; }
+        public string ID { get; init; } = "";
+        public IEnumerable<Branch> Branches { get; init; } = new List<Branch>();
     }
 
     /// <summary>
-    /// A raceway is a STRAIGHT line segment between 
-    /// any two nodes. Two or more raceways are 
+    /// A raceway is a DIRECTED, STRAIGHT line segment 
+    /// between any two nodes. Two or more raceways are 
     /// connected when they share a common node.
     /// </summary>
     public record Raceway
     {
-        public string ID { get; init; }
-        public Node FromNode { get; init; }
-        public Node ToNode { get; init; }
+        public string ID { get; init; } = "";
+        public Node FromNode { get; init; } = new();
+        public Node ToNode { get; init; } = new();
         public string BranchID { get; init; } = "";
         public double Length { get; init; } = 0.0;
     }
