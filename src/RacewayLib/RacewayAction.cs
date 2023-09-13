@@ -1,4 +1,7 @@
-﻿namespace RacewayLib
+﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
+
+namespace RacewayLib
 {
     public static class RacewayAction
     {
@@ -66,6 +69,14 @@
                 _ => new[] { node }.Concat(node.NextNode.GetLinkNodes())
             };
 
+        static (bool Success, Node Node) FindFirstNode(this Node node, IEnumerable<Node> searchNodes) =>
+            node switch
+            {
+                null => (false, new()),
+                var n when searchNodes.Contains(node) => (true, n),
+                _ => FindFirstNode(node.NextNode, searchNodes)
+            };
+
         #endregion
 
         #region Raceway
@@ -80,16 +91,64 @@
         /// Create a set of raceways from a branch.
         /// </summary>
         public static IEnumerable<Raceway> CalcRaceway(this Branch branch) =>
-            branch.GetNodeList().Where(n => n.NextNode != null).Select(n => n.ToRaceway()).ToList();
+            branch.GetNodeList().Where(n => n.NextNode != null).Select(n => n.ToRaceway().Raceway).ToList();
 
         /// <summary>
-        /// Create a raceway from this node to the next connected node.
+        /// Create a raceway from this node to the next link node.
         /// </summary>
-        static Raceway ToRaceway(this Node node) =>
-            new() { ID = node.ID, FromNode = node, ToNode = node.NextNode, BranchID = node.BranchID, Length = node.Length };
+        static (bool Success, Raceway Raceway) ToRaceway(this Node fromNode) =>
+            fromNode.NextNode switch
+            {
+                null => (false, new()),
+                _ => (true, new()
+                {
+                    ID = fromNode.ID,
+                    FromNode = fromNode,
+                    ToNode = fromNode.NextNode,
+                    BranchID = fromNode.BranchID == fromNode.NextNode.BranchID ? fromNode.BranchID : "",
+                    Length = fromNode.Length
+                })
+            };
 
         /// <summary>
-        /// Validate that these raceways is a complete branch
+        /// A raceway could span multiple nodes of a branch. If so, calculate a
+        /// set of raceways between consecutive link nodes of this branch.
+        /// </summary>
+        /// <param name="startSearchNode">Could be a start node of a branch 
+        /// or a node of the branch to begin a search for the first match
+        /// node of the raceway. It is expected that the start node is eventually linked to
+        /// to the nodes of the raceway once the search is completed starting with the start node.</param>
+        /// <param name="raceway">A raceway that potentially span multiple branch nodes</param>
+        /// <returns>A list of inner raceways between the two nodes of the input raceway.</returns>
+        public static (bool Success, IEnumerable<Raceway> Raceways) ToRaceway(this Node startSearchNode, Raceway raceway)
+        {
+            var lstRw = new List<Raceway>();
+            var (cont, node) = startSearchNode.FindFirstNode(new[] { raceway.FromNode, raceway.ToNode });
+            if (!cont || node.NextNode == null) return (false, lstRw);
+
+            var en = raceway.FromNode.ID == node.ID ? raceway.ToNode : raceway.FromNode;
+
+            bool createRW(Node node)
+            {
+                if (node.ToRaceway() is (true, var rw))
+                {
+                    lstRw.Add(rw);
+                    if (rw.ToNode.ID == en.ID)
+                        return true;
+                    return createRW(rw.ToNode);
+                }
+                else return false;
+            }
+
+            return (createRW(node), lstRw);
+        }
+
+        public static (bool Success, IEnumerable<Raceway> Raceways) ToRaceway(this Branch branch, Raceway raceway) =>
+            branch.StartNode.ToRaceway(raceway);
+
+        /// <summary>
+        /// Validate that these raceways is a complete branch with
+        /// a common branch ID, a start node, and an end node.
         /// </summary>
         public static (bool Success, Branch Branch) IsBranch(IEnumerable<Raceway> raceways)
         {
@@ -107,12 +166,14 @@
             // check if raceway data is valid
             foreach(var r in raceways)
             {
+                // the 2 end nodes are linked
                 isErr = r.FromNode.NextNode.ID != r.ToNode.ID;
+                // raceway length and length to next node are equal
                 isErr = r.FromNode.Length != r.Length;
                 if ((isErr)) return (false, new());
             }
 
-            // check if all nodes are connected with one another
+            // check if all nodes are linked with one another
             var dn = nodes.ToDictionary(n => n.ID);
             var cn = lsn.First().ID;
             while (dn.TryGetValue(cn, out var node))
@@ -120,6 +181,7 @@
                 dn.Remove(cn);
                 cn = node.NextNode.ID;
             }
+            // there are nodes that are not linked
             isErr = dn.Count > 0;
 
             return (!isErr, isErr ? new() :
@@ -131,22 +193,28 @@
                 });
         }
 
+        /// <summary>
+        /// Convert the raceways possibly from various branches to a
+        /// branch data structure. These raceways could be a route
+        /// of a cable.
+        /// </summary>
+        /// <returns>A branch data structure linking all the nodes.</returns>
         public static (bool Success, Branch Branch) ToBranch(IEnumerable<Raceway> raceways, string branchId)
         {
             var drw = raceways
-                .Select(r => (NodeID: r.FromNode.ID, Raceway: r))
-                .Concat(raceways.Select(r => (NodeID: r.ToNode.ID, Raceway: r)))
-                .GroupBy(t => t.NodeID)
-                .Select(g => (NodeID: g.Key, Raceways: g.Select(t => t.Raceway).ToList()))
+                .Select(r => (Node: r.FromNode, Raceway: r))
+                .Concat(raceways.Select(r => (Node: r.ToNode, Raceway: r)))
+                .GroupBy(t => t.Node.ID)
+                .Select(g => (NodeID: g.Key, Raceways: g.Select(t => t).ToList()))
                 .ToDictionary(t => t.NodeID);
 
             // expect each node only has 1 or 2 connected raceways
             if (drw.Any(kv => kv.Value.Raceways.Count > 2))
                 return (false, new());
 
-            // end nodes of branch with only one associated raceway
+            // end nodes of branch with only one (1) associated raceway
             var ends = drw.Where(kv => kv.Value.Raceways.Count == 1)
-                .Select(kv => kv.Key)
+                .Select(kv => kv.Value.Raceways.First().Node)
                 .ToList();
 
             // expect only two end nodes for a branch
@@ -159,26 +227,26 @@
             var en = ends[1];
 
             // get rw associate with end node
-            var cr = drw[en].Raceways.First();
-            drw.Remove(en);
+            var cr = drw[en.ID].Raceways.First().Raceway;
+            drw.Remove(en.ID);
 
             // create the end node of branch
-            Node endNode = new() { ID = en, Length = 0, NodeType = NodeTypeEnum.End, BranchID = branchId };
+            Node endNode = en with { Length = 0, NodeType = NodeTypeEnum.End };
             Node cn = endNode;
 
             // find opposite node of raceway
-            var pn = cr.FromNode.ID == en ? cr.ToNode.ID : cr.FromNode.ID;
-            while (drw.ContainsKey(pn))
+            var pn = cr.FromNode.ID == en.ID ? cr.ToNode : cr.FromNode;
+            while (drw.ContainsKey(pn.ID))
             {
                 // get rw leading to node
-                cr = drw[pn].Raceways.Where(r => r.ID != cr.ID).First();
-                drw.Remove(pn);
+                cr = drw[pn.ID].Raceways.Where(t => t.Raceway.ID != cr.ID).First().Raceway;
+                drw.Remove(pn.ID);
 
                 // create the from node
-                cn = new() { ID = pn, Length = cr.Length, 
-                    NodeType = pn == sn ? NodeTypeEnum.Start : NodeTypeEnum.Point, 
-                    BranchID = branchId, NextNode = cn };
-                pn = cr.FromNode.ID == pn ? cr.ToNode.ID : cr.FromNode.ID;
+                cn = pn with { Length = cr.Length, 
+                    NodeType = pn.ID == sn.ID ? NodeTypeEnum.Start : NodeTypeEnum.Point, 
+                    NextNode = cn };
+                pn = cr.FromNode.ID == pn.ID ? cr.ToNode : cr.FromNode;
             }
 
             if (cn.NodeType != NodeTypeEnum.Start || drw.Count > 0)
@@ -193,7 +261,7 @@
 
         #endregion
 
-        #region Node Coord
+        #region Node
 
         /// <summary>
         /// Insert a node into the branch after the from node.
@@ -212,39 +280,6 @@
             var fn1 = fromNode with { NextNode = tn1, Length = l };
             return (true, new[] { fn1, tn1 });
         }
-
-        public static IDictionary<string, IEnumerable<Node>> GroupNode(IEnumerable<Node> nodes, Func<Node, string> hashfunc) =>
-            nodes
-                .GroupBy(n => hashfunc(n))
-                .Select(g => (g.Key, Value: g.Select(n => n)))
-                .Where(t => t.Value.Count() > 1)
-                .Aggregate(new Dictionary<string, IEnumerable<Node>>(), (agg, v) => 
-                {
-                    agg.Add(v.Key, v.Value);
-                    return agg;
-                });
-
-        /// <summary>
-        /// Calculate neighbor nodes by grouping nodes into a common 3D volume of certain dimension. 
-        /// </summary>
-        public static IDictionary<string, IEnumerable<Node>> GroupNodeByCoord(IEnumerable<Node> nodes, 
-            Func<Node, (double X, double Y, double Z)> getCoord)
-        {
-            string hashFunc(Node n)
-            {
-                var (X, Y, Z) = getCoord(n);
-                return string.Format("{0}-{1}-{2}", 
-                    Convert.ToInt32(X), Convert.ToInt32(Y), Convert.ToInt32(Z));
-            };
-            return GroupNode(nodes, hashFunc);
-        }
-
-        /// <summary>
-        /// Scale node coord into a common 3D volume of certain dimension
-        /// </summary>
-        /// <returns>Scaled node coord</returns>
-        public static (double X, double Y, double Z) ScaleNodeCoordExample(NodeCoord node, double scaleFactor) =>
-            (Math.Floor(node.X * scaleFactor), Math.Floor(node.Y * scaleFactor), Math.Floor(node.Z * scaleFactor));
 
         #endregion
     }
