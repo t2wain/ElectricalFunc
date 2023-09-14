@@ -15,7 +15,9 @@ namespace RacewayLib
     /// <summary>
     /// A node is a component of a branch separated by
     /// a length. Node is directional in the direction
-    /// from this node to the NextNode.
+    /// from this node to the NextNode. The branch id
+    /// and the node id identify the next segment 
+    /// of the branch.
     /// </summary>
     public record Node {
         public string ID { get; init; } = "";

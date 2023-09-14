@@ -77,6 +77,37 @@ namespace RacewayLib
                 _ => FindFirstNode(node.NextNode, searchNodes)
             };
 
+        public static (bool Success, Branch Branch) IsBranch(IEnumerable<Node> nodes)
+        {
+            // check for only one start node, end node, and branch ID in a branch
+            var lsn = nodes.Where(n => n.NodeType == NodeTypeEnum.Start).ToList();
+            var len = nodes.Where(n => n.NodeType == NodeTypeEnum.End).ToList();
+            var lbid = nodes.Select(n => n.BranchID).ToList();
+            var isErr = lsn.Count != 1 || len.Count != 1 || lbid.Count != 1;
+            isErr = lbid.Count != lbid.Distinct().Count();
+            if ((isErr)) return (false, new());
+
+            // check if all nodes are linked with one another
+            var dn = nodes.ToDictionary(n => n.ID);
+            var cn = lsn.First().ID;
+            while (dn.TryGetValue(cn, out var node))
+            {
+                dn.Remove(cn);
+                cn = node.NextNode.ID;
+            }
+            // there are nodes that are not linked
+            isErr = dn.Count > 0;
+
+            return (!isErr, isErr ? new() :
+                new()
+                {
+                    ID = lbid.First(),
+                    StartNode = lsn.First(),
+                    EndNode = len.First()
+                });
+        }
+
+
         #endregion
 
         #region Raceway
@@ -152,55 +183,34 @@ namespace RacewayLib
         /// </summary>
         public static (bool Success, Branch Branch) IsBranch(IEnumerable<Raceway> raceways)
         {
-            // get a list of unique nodes
-            var nodes = raceways.SelectMany(r => new[] { r.FromNode, r.ToNode }).Distinct().ToList();
-
-            // check for only one start node, end node, and branch ID in a branch
-            var lsn = nodes.Where(n => n.NodeType == NodeTypeEnum.Start).ToList();
-            var len = nodes.Where(n => n.NodeType == NodeTypeEnum.End).ToList();
-            var lbid = nodes.Select(n => n.BranchID).ToList();
-            var isErr = lsn.Count != 1 || len.Count != 1 || lbid.Count != 1;
-            isErr = lbid.Count != lbid.Distinct().Count();
-            if ((isErr)) return (false, new());
-
             // check if raceway data is valid
             foreach(var r in raceways)
             {
                 // the 2 end nodes are linked
-                isErr = r.FromNode.NextNode.ID != r.ToNode.ID;
+                var isErr = r.FromNode.NextNode.ID != r.ToNode.ID;
                 // raceway length and length to next node are equal
                 isErr = r.FromNode.Length != r.Length;
                 if ((isErr)) return (false, new());
             }
 
-            // check if all nodes are linked with one another
-            var dn = nodes.ToDictionary(n => n.ID);
-            var cn = lsn.First().ID;
-            while (dn.TryGetValue(cn, out var node))
-            {
-                dn.Remove(cn);
-                cn = node.NextNode.ID;
-            }
-            // there are nodes that are not linked
-            isErr = dn.Count > 0;
-
-            return (!isErr, isErr ? new() :
-                new()
-                {
-                    ID = lbid.First(),
-                    StartNode = lsn.First(),
-                    EndNode = len.First()
-                });
+            // get a list of unique nodes
+            var nodes = raceways.SelectMany(r => new[] { r.FromNode, r.ToNode }).Distinct().ToList();
+            return IsBranch(nodes);
         }
 
         /// <summary>
         /// Convert the raceways possibly from various branches to a
         /// branch data structure. These raceways could be a route
-        /// of a cable.
+        /// of a cable. The branch id and and the node id of this
+        /// derived branch is the same as the nodes of
+        /// the source branches.
         /// </summary>
         /// <returns>A branch data structure linking all the nodes.</returns>
-        public static (bool Success, Branch Branch) ToBranch(IEnumerable<Raceway> raceways, string branchId)
+        public static (bool Success, Branch Branch) CreateBranch(IEnumerable<Raceway> raceways, string branchId)
         {
+            #region Validation
+
+            // lookup raceway by node
             var drw = raceways
                 .Select(r => (Node: r.FromNode, Raceway: r))
                 .Concat(raceways.Select(r => (Node: r.ToNode, Raceway: r)))
@@ -220,6 +230,10 @@ namespace RacewayLib
             // expect only two end nodes for a branch
             if (ends.Count != 2)
                 return (false, new());
+
+            #endregion
+
+            #region Create link nodes of the branch
 
             // pick one as start node
             // and the other as end node
@@ -242,12 +256,21 @@ namespace RacewayLib
                 cr = drw[pn.ID].Raceways.Where(t => t.Raceway.ID != cr.ID).First().Raceway;
                 drw.Remove(pn.ID);
 
-                // create the from node
-                cn = pn with { Length = cr.Length, 
+                // create the from node. This node must be relatable
+                // to node of the source branch that create the raceway.
+                cn = pn with {
+                    // TODO: need to validate this logic. The branch id
+                    // and node id identify the segment of the original branch.
+                    // The raceway id typcially is the from node id
+                    // of the orginal branch.
+                    ID = cr.ID, 
+                    Length = cr.Length, 
                     NodeType = pn.ID == sn.ID ? NodeTypeEnum.Start : NodeTypeEnum.Point, 
-                    NextNode = cn };
+                    NextNode = cn }; // direction of the route
                 pn = cr.FromNode.ID == pn.ID ? cr.ToNode : cr.FromNode;
             }
+
+            #endregion
 
             if (cn.NodeType != NodeTypeEnum.Start || drw.Count > 0)
                 return (false, new());
