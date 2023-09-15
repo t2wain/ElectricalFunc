@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\GraphLib\GraphLib.csproj" />
     <ProjectReference Include="..\NecFillLib\NecFillLib.csproj" />
+    <ProjectReference Include="..\RacewayLib\RacewayLib.csproj" />
     <ProjectReference Include="..\RouteLib\RouteLib.csproj" />
   </ItemGroup>
 

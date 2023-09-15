@@ -4,6 +4,7 @@ namespace RacewayLib
 {
     public enum NodeTypeEnum
     {
+        Default,
         Point,
         Start,
         End,
@@ -20,17 +21,24 @@ namespace RacewayLib
     /// of the branch.
     /// </summary>
     public record Node {
+
+        static Node EmptyNode = new();
+
         public string ID { get; init; } = "";
         /// <summary>
         /// Belong to a branch
         /// </summary>
         public string BranchID { get; init; } = "";
+
         /// <summary>
         /// The next connected node in a path.
         /// This path is a straight line segement
         /// between these nodes.
         /// </summary>
-        public Node NextNode { get; init; } = new();
+        public Node NextNodeSet { protected get; init; }
+
+        public Node NextNode => NextNodeSet ?? EmptyNode;
+
         /// <summary>
         /// The distance to the next connected node.
         /// </summary>
@@ -60,6 +68,10 @@ namespace RacewayLib
         public Node StartNode { get; init; } = new();
         public Node EndNode { get; init; } = new();
     }
+
+    public record RouteBranch : Branch { }
+
+    public record RouteNode : Node { }
 
     /// <summary>
     /// A Pipe has a set of connected branches 
@@ -103,5 +115,11 @@ namespace RacewayLib
             !string.IsNullOrEmpty(BranchID) ||
             FromNode.BranchID == ToNode.BranchID;
     }
+
+    /// <summary>
+    /// A physical connection between two nodes
+    /// not from the same branch (like JUMP, DROP).
+    /// </summary>
+    public record RwConn : Raceway { }
 
 }

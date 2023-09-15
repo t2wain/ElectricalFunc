@@ -1,7 +1,10 @@
-﻿using RW = RouteLib.RWTypeEnum;
+﻿using RWT = RouteLib.RWTypeEnum;
 using static RouteDB.LookUp;
 using static NecFillLib.TrayBottom;
-using RouteLib;
+using static RouteLib.RouteAlgo;
+using RT = RouteLib;
+using RW = RacewayLib;
+using NT = RacewayLib.NodeTypeEnum;
 
 namespace RouteDB
 {
@@ -135,14 +138,14 @@ namespace RouteDB
 
         #region For cable routing
 
-        static IDictionary<string, Raceway> _raceways;
+        static IDictionary<string, RT.Raceway> _raceways;
 
-        static TraySegSystem _rwsegs;
+        static RT.TraySegSystem _rwsegs;
 
-        public static IDictionary<string, Raceway> GetRaceways()
+        public static IDictionary<string, RT.Raceway> GetRaceways()
         {
             if (_raceways == null)
-                _raceways = new List<Raceway>()
+                _raceways = new List<RT.Raceway>()
                 {
                     new() { ID = "R1", FromNode = new("N1"), ToNode = new("N2") },
                     new() { ID = "R2", FromNode = new("N2"), ToNode = new("N3") },
@@ -164,27 +167,46 @@ namespace RouteDB
                     new() { ID = "R8", FromNode = new("N8"), ToNode = new("N9") },
                     new() { ID = "R9", FromNode = new("N9"), ToNode = new("N10") },
 
-                    new() { ID = "J1", FromNode = new("N7A"), ToNode = new("N7B"), Type = RW.OTHER },
+                    new() { ID = "J1", FromNode = new("N7A"), ToNode = new("N7B"), Type = RWT.OTHER },
 
-                    new() { ID = "D1", FromNode = new("E1"), ToNode = new("N1"), Type = RW.DROP },
-                    new() { ID = "D2", FromNode = new("E2"), ToNode = new("N7A"), Type = RW.DROP },
-                    new() { ID = "D3", FromNode = new("E3"), ToNode = new("N7B"), Type = RW.DROP },
-                    new() { ID = "D4", FromNode = new("E4"), ToNode = new("N10"), Type = RW.DROP },
+                    new() { ID = "D1", FromNode = new("E1"), ToNode = new("N1"), Type = RWT.DROP },
+                    new() { ID = "D2", FromNode = new("E2"), ToNode = new("N7A"), Type = RWT.DROP },
+                    new() { ID = "D3", FromNode = new("E3"), ToNode = new("N7B"), Type = RWT.DROP },
+                    new() { ID = "D4", FromNode = new("E4"), ToNode = new("N10"), Type = RWT.DROP },
 
                 }.ToDictionary(r => r.ID);
 
             return _raceways;
         }
 
-        public static TraySegSystem GetTraySegs()
+        public static RT.TraySegSystem GetTraySegs()
         {
             if (_rwsegs == null)
             {
                 var lvSys = GetRaceways().Values.Where(rw => rw.IsTray()).Select(rw => (rw.ID, "LV"));
-                _rwsegs = lvSys.Aggregate(new TraySegSystem(), (agg, i) => { agg.Add(i); return agg; });
+                _rwsegs = lvSys.Aggregate(new RT.TraySegSystem(), (agg, i) => { agg.Add(i); return agg; });
             }
 
             return _rwsegs;
+        }
+
+        #endregion
+
+        #region For raceway
+
+        public static RW.Branch GetBranch()
+        {
+            var en = new RW.Node() { ID = "N9", BranchID = "B1", NodeType = NT.End };
+            var n8 = new RW.Node() { ID = "N8", BranchID = "B1", Length = 1, NodeType = NT.Part, NextNodeSet = en };
+            var n7a = new RW.Node() { ID = "N7A", BranchID = "B1", Length = 2, NodeType = NT.Part, NextNodeSet = n8 };
+            var n6 = new RW.Node() { ID = "N6", BranchID = "B1", Length = 1, NodeType = NT.Part, NextNodeSet = n7a };
+            var n5 = new RW.Node() { ID = "N5", BranchID = "B1", Length = 2, NodeType = NT.Part, NextNodeSet = n6 };
+            var n4 = new RW.Node() { ID = "N4", BranchID = "B1", Length = 1, NodeType = NT.Part, NextNodeSet = n5 };
+            var n3 = new RW.Node() { ID = "N3", BranchID = "B1", Length = 1, NodeType = NT.Part, NextNodeSet = n4 };
+            var n2 = new RW.Node() { ID = "N2", BranchID = "B1", Length = 1, NodeType = NT.Part, NextNodeSet = n3 };
+            var sn = new RW.Node() { ID = "N1", BranchID = "B1", Length = 1, NodeType = NT.Start, NextNodeSet = n2 };
+
+            return new() { ID = "B1", Name = "B1", StartNode = sn, EndNode = en };
         }
 
         #endregion
