@@ -12,4 +12,4 @@ Additionally, the routing application will generate other raceway data such as i
 
 # Objective
 
-This project implements two types of data structure, Branch and Raceway. Branch data structure is similar to that from Aveve E3D while Raceway data structue is similar to edges and vertices use graph algorithm. 
+This project implements two types of data structure, Branch and Raceway. Branch data structure is similar to that from Aveve E3D while Raceway data structue is similar to edges and vertices used in graph algorithm. 

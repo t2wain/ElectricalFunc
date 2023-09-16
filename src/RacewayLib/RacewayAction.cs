@@ -218,6 +218,7 @@ namespace RacewayLib
             {
                 // the 2 end nodes are linked
                 var isErr = r.FromNode.NextNode.ID != r.ToNode.ID;
+                isErr = r.ID != r.FromNode.ID;
                 // raceway length and length to next node are equal
                 isErr = r.FromNode.Length != r.Length;
                 if ((isErr)) return (false, new());
@@ -329,15 +330,20 @@ namespace RacewayLib
             if (fromNode is { NodeType: NodeTypeEnum.Default })
                 return (false, Array.Empty<Node>());
             else if (fromNode is { NodeType: NodeTypeEnum.End })
+            {
+                // new node become end node
+                var en = new Node { ID = nodeID, BranchID = fromNode.BranchID, NodeType = NodeTypeEnum.End };
                 return (true, new[] {
-                    fromNode,
-                    fromNode with { ID = nodeID, Length = length, NextNodeSet = fromNode }
+                    en, 
+                    // previous end node become inner node
+                    fromNode with { Length = length, NextNodeSet = en, NodeType = NodeTypeEnum.Point }
                 });
+            }
             else if (fromNode.Length - length < 0)
                 return (false, Array.Empty<Node>());
             else
             {
-                var tn = fromNode with { ID = nodeID, Length = length };
+                var tn = fromNode with { ID = nodeID, Length = length, NodeType = NodeTypeEnum.Point };
                 return (true, new[]
                 {
                     tn,

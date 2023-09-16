@@ -7,11 +7,16 @@ There are four (4) projects that implement the main features:
 - GraphLib
 - NECFillLib
 - RouteLib
+- RacewayLib
 
 The other three (3) projects are testing projects:
 - AppConsole
 - RouteDB
 - UnitTestroject
+
+# Splitting into Sub Domains
+
+It would be appropriate to include all functionalities in these libraries within a single engineering application. However, to include all these functionlities into a single domain (a single library) would make software development a lot more complex. Splitting these functionalities into multiple sub domains (libraries) allow a more focus and simpler solution. Although some entities are common to these sub domains, such as cable and raceway, the data types are still developed separately within each library to minimize dependency. 
 
 # Functional Programming Principles
 

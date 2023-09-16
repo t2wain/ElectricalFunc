@@ -92,7 +92,10 @@ namespace RacewayLib
     public record Raceway
     {
         /// <summary>
-        /// Typically is the same as the FromNode ID
+        /// When the raceway is a branch raceway, it is
+        /// expected that the ID will be of the anchor 
+        /// branch node. The anchor node and its linked node
+        /// are the two nodes of this raceway.
         /// </summary>
         public string ID { get; init; } = "";
         public Node FromNode { get; init; } = new();
