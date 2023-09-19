@@ -26,6 +26,7 @@ namespace GraphLib
         IEnumerable<IEdge> Edges { get; }
         EdgeFilter EdgeFilter { get; }
         EdgeMatrix Value { get; }
+        bool IsDirected { get; }
     }
 
 }

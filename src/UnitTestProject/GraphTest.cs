@@ -35,6 +35,76 @@ namespace UnitTestProject
         }
 
         [Fact]
+        public void Should_get_out_edges()
+        {            
+            // arrange
+            var edges = TestData.GetEdges();
+            var e = edges.First();
+            var g = edges.BuildGraph(true);
+
+            // act
+            var oe = g.GetOutEdges(new V("w"));
+
+            // assert
+            Assert.Equal(2, oe.Count());
+            Assert.Contains(oe, e => e.ID == "4");
+            Assert.Contains(oe, e => e.ID == "5");
+
+        }
+
+        [Fact]
+        public void Should_get_in_edges()
+        {
+            // arrange
+            var edges = TestData.GetEdges();
+            var e = edges.First();
+            var g = edges.BuildGraph(true);
+
+            // act
+            var ie = g.GeInEdges(new V("w"));
+
+            // assert
+            Assert.Single(ie);
+            Assert.Contains(ie, e => e.ID == "3");
+
+        }
+
+        [Fact]
+        public void Should_get_neighbor()
+        {
+            // arrange
+            var edges = TestData.GetEdges();
+            var e = edges.First();
+            var g = edges.BuildGraph(true);
+
+            // act
+            var nv = g.GetNeigborVertices(new V("w"));
+
+            // assert
+            Assert.Equal(2, nv.Count());
+            Assert.Contains(nv, v => v.ID == "t");
+            Assert.Contains(nv, v => v.ID == "x");
+
+        }
+
+        [Fact]
+        public void Should_get_predecessor()
+        {
+            // arrange
+            var edges = TestData.GetEdges();
+            var e = edges.First();
+            var g = edges.BuildGraph(true);
+
+            // act
+            var pv = g.GetPredecessorVertices(new V("w"));
+
+            // assert
+            Assert.Single(pv);
+            Assert.Contains(pv, v => v.ID == "s");
+
+        }
+
+        [Fact]
         public void Should_calc_BFS()
         {
             // action

@@ -16,7 +16,7 @@ namespace GraphLib.Example
 
         public record E(string ID, IVertex FromVertex, IVertex ToVertex, EdgeWeight Weight) : IEdge { }
 
-        public record Graph(IEnumerable<IEdge> Edges, EdgeFilter EdgeFilter, EdgeMatrix Value) : IGraph { }
+        public record Graph(IEnumerable<IEdge> Edges, EdgeFilter EdgeFilter, EdgeMatrix Value, bool IsDirected) : IGraph { }
 
         public static IEnumerable<IEdge> GetEdges()
         {
