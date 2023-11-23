@@ -9,13 +9,21 @@ namespace GraphLib
 {
     public static class DFSAlgo
     {
+        // TODO
+        public interface IDFSAction
+        {
+            void VisitEdge(IVertex FromVertex, IVertex ToVertex, IEdge Edge, int EdgeType, int Component);
+            void PreVisitVertex(IVertex Vertex, int Component, int PreVisitIndex);
+            void PostVisitVertex(IVertex Vertex, int PostVisitIndex);
+        }
+
         public record DFSEdge(IVertex FromVertex, IVertex ToVertex, IEdge Edge, int EdgeType, int Component);
 
         public record DFSVertice(IVertex Vertex, int Component, int PreVisitIndex, int PostVisitIndex);
 
         record VisitedVertex(IVertex Vertex, IEnumerator<IEdge> OutEdges, int component, int PreVisitIndex);
 
-        public static IEnumerable<DFSEdge> DFS(this IGraph g, IVertex? source = null)
+        public static IEnumerable<DFSEdge> DFS(this IGraph g, IVertex? source = null, IDFSAction? action = null)
         {
             var vertices = g.GetVertices(); // all vertices in the graph
             if (source != null)
@@ -46,6 +54,7 @@ namespace GraphLib
                 //recently visited vertex to be explored next
                 predecessorV.Push(new (topV, 
                     g.GetOutEdges(topV).GetEnumerator(), component, ++visitIndex));
+                action?.PreVisitVertex(topV, component, visitIndex);
                 while (predecessorV.Count > 0)
                 {
                     // begin to explore the current vertex
@@ -73,6 +82,7 @@ namespace GraphLib
                             // recently visited vertex to be explored next
                             predecessorV.Push(new VisitedVertex(childV, 
                                 g.GetOutEdges(childV).GetEnumerator(), component, ++visitIndex));
+                            action?.PreVisitVertex(childV, component, visitIndex);
                         }
 
                         // check if the edge has been returned
@@ -82,6 +92,7 @@ namespace GraphLib
                             // return the edge
                             var resEdge = new DFSEdge(parentV, childV, inEdge, etype, component);
                             lstDFSEdge.Add(resEdge);
+                            action?.VisitEdge(parentV, childV, inEdge, etype, component);
                             yield return resEdge;
                             visitedE.Add(inEdge); // mark the edge as returned
                         }
@@ -93,6 +104,7 @@ namespace GraphLib
                         var postV = predecessorV.Pop();
                         lstDFSVertice.Add(new(postV.Vertex, 
                             postV.component, postV.PreVisitIndex, ++visitIndex));
+                        action?.PostVisitVertex(postV.Vertex, visitIndex);
                         postV.OutEdges.Dispose();
                     }
                 }
