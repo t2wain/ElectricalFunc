@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace GraphLib
 {
@@ -10,13 +11,20 @@ namespace GraphLib
     {
         public record DFSEdge(IVertex FromVertex, IVertex ToVertex, IEdge Edge, int EdgeType, int Component);
 
-        record VisitedVertex(IVertex Vertex, IEnumerator<IEdge> OutEdges);
+        public record DFSVertice(IVertex Vertex, int Component, int PreVisitIndex, int PostVisitIndex);
+
+        record VisitedVertex(IVertex Vertex, IEnumerator<IEdge> OutEdges, int component, int PreVisitIndex);
 
         public static IEnumerable<DFSEdge> DFS(this IGraph g, IVertex? source = null)
         {
             var vertices = g.GetVertices(); // all vertices in the graph
             if (source != null)
                 vertices = vertices.Where(v => v == source);
+
+            // DFS results
+            // TODO: return both DFSEdge and DFSVertice results
+            var lstDFSEdge = new List<DFSEdge>();
+            var lstDFSVertice = new List<DFSVertice>();
 
             // edges of parent vertex that were visited 
             // to be explored in the order of deepest vertex first
@@ -25,6 +33,7 @@ namespace GraphLib
             var visitedV = new HashSet<IVertex>(); // visited vertex
             var visitedE = new HashSet<IEdge>(); // visited edge
             int component = -1; // component labeling
+            int visitIndex = -1; // vertex visited index
             foreach (var topV in vertices)
             {
                 // select a vertex not visited to begin a new search
@@ -35,7 +44,8 @@ namespace GraphLib
                 visitedV.Add(topV); // track visited vertex
                 // save vertex and its edges as the most 
                 //recently visited vertex to be explored next
-                predecessorV.Push(new (topV, g.GetOutEdges(topV).GetEnumerator()));
+                predecessorV.Push(new (topV, 
+                    g.GetOutEdges(topV).GetEnumerator(), component, ++visitIndex));
                 while (predecessorV.Count > 0)
                 {
                     // begin to explore the current vertex
@@ -61,7 +71,8 @@ namespace GraphLib
                             visitedV.Add(childV); // mark vertex as visited
                             // save vertex and its out edges as the most 
                             // recently visited vertex to be explored next
-                            predecessorV.Push(new VisitedVertex(childV, g.GetOutEdges(childV).GetEnumerator()));
+                            predecessorV.Push(new VisitedVertex(childV, 
+                                g.GetOutEdges(childV).GetEnumerator(), component, ++visitIndex));
                         }
 
                         // check if the edge has been returned
@@ -69,16 +80,26 @@ namespace GraphLib
                         if (!visitedE.Contains(inEdge))
                         {
                             // return the edge
-                            yield return new DFSEdge(parentV, childV, inEdge, etype, component);
+                            var resEdge = new DFSEdge(parentV, childV, inEdge, etype, component);
+                            lstDFSEdge.Add(resEdge);
+                            yield return resEdge;
                             visitedE.Add(inEdge); // mark the edge as returned
                         }
                     }
                     else
+                    {
                         // all out edges of the current vertex have been
                         // explored and returned. Remove the vertex from stack.
-                        predecessorV.Pop().OutEdges.Dispose();
+                        var postV = predecessorV.Pop();
+                        lstDFSVertice.Add(new(postV.Vertex, 
+                            postV.component, postV.PreVisitIndex, ++visitIndex));
+                        postV.OutEdges.Dispose();
+                    }
                 }
             }
+
+            // TODO
+            // return (Edges: lstDFEdge, Vertices: lstVertice); 
         }
 
     }
